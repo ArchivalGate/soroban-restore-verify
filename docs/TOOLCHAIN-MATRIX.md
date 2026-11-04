@@ -45,7 +45,7 @@ SorobanResourcesExtV0 {
 }
 ```
 
-The read-bytes field is named `disk_read_bytes`. The transaction-data extension is `SorobanTransactionDataExt::V0` or `V1(SorobanResourcesExtV0)`. The generated definitions are in the [`stellar-xdr` 30.0.0 source](https://github.com/stellar/rs-stellar-xdr/tree/v30.0.0).
+The read-bytes field is named `disk_read_bytes`. The transaction-data extension is `SorobanTransactionDataExt::V0` or `V1(SorobanResourcesExtV0)`. In this release the generated types are exported at the crate root; there is no `stellar_xdr::curr` module. `ReadXdr` supplies `TransactionEnvelope::from_xdr_base64`. The generated definitions are in the [`stellar-xdr` 30.0.0 source](https://github.com/stellar/rs-stellar-xdr/tree/v30.0.0).
 
 ## Capability and authority matrix
 
