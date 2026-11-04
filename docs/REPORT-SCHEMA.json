@@ -1,0 +1,167 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:soroban-restore-verify:report:1.0",
+  "title": "soroban-restore-verify report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "status",
+    "authority",
+    "operation",
+    "is_fee_bump",
+    "operation_count",
+    "max_entry_ttl",
+    "snapshot",
+    "keys",
+    "violations",
+    "warnings"
+  ],
+  "properties": {
+    "schema": {
+      "const": "soroban-restore-verify/1.0"
+    },
+    "status": {
+      "enum": ["VERIFIED_LOCAL", "VIOLATION"]
+    },
+    "authority": {
+      "const": "AUTHORITATIVE_PROTOCOL_XDR"
+    },
+    "operation": {
+      "type": ["string", "null"],
+      "enum": ["RestoreFootprint", "ExtendFootprintTtl", "InvokeHostFunction", "Unsupported", "MULTIPLE", null]
+    },
+    "is_fee_bump": {
+      "type": "boolean"
+    },
+    "operation_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "max_entry_ttl": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 4294967295
+    },
+    "snapshot": {
+      "oneOf": [
+        {"type": "null"},
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["authority", "current_ledger"],
+          "properties": {
+            "authority": {"const": "CALLER_SNAPSHOT"},
+            "current_ledger": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 4294967295
+            }
+          }
+        }
+      ]
+    },
+    "keys": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["section", "index", "key_type", "key_xdr_base64", "key_sha256"],
+        "properties": {
+          "section": {"enum": ["read_only", "read_write"]},
+          "index": {"type": "integer", "minimum": 0},
+          "key_type": {
+            "enum": [
+              "Account",
+              "Trustline",
+              "Offer",
+              "Data",
+              "ClaimableBalance",
+              "LiquidityPool",
+              "ContractData",
+              "ContractCode",
+              "ConfigSetting",
+              "Ttl"
+            ]
+          },
+          "durability": {"enum": ["Persistent", "Temporary"]},
+          "key_xdr_base64": {"type": "string", "minLength": 1},
+          "key_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+          "snapshot_status": {
+            "enum": ["PRESENT", "INCONCLUSIVE_MISSING_FROM_SNAPSHOT"]
+          },
+          "live_until_ledger_seq": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+          }
+        }
+      }
+    },
+    "violations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["code", "message"],
+        "properties": {
+          "code": {
+            "enum": [
+              "ENVELOPE_V0_UNSUPPORTED_FOR_SOROBAN",
+              "EMPTY_OPERATIONS",
+              "OP_NOT_ISOLATED",
+              "UNSUPPORTED_OPERATION_TYPE",
+              "MISSING_SOROBAN_TRANSACTION_DATA",
+              "FOOTPRINT_DUPLICATE_KEY",
+              "FOOTPRINT_UNSORTED",
+              "KEY_XDR_ENCODING_FAILED",
+              "RESTORE_NON_EMPTY_READ_ONLY",
+              "RESTORE_EMPTY_READ_WRITE",
+              "RESTORE_FORBIDDEN_TEMPORARY_KEY",
+              "RESTORE_FORBIDDEN_CLASSIC_KEY",
+              "RESTORE_NON_ZERO_INSTRUCTIONS",
+              "RESTORE_ZERO_WRITE_BYTES",
+              "RESTORE_ZERO_DISK_READ_BYTES",
+              "RESTORE_NON_POSITIVE_RESOURCE_FEE",
+              "RESTORE_FORBIDDEN_ARCHIVED_ENTRIES_EXT",
+              "EXTEND_NON_EMPTY_READ_WRITE",
+              "EXTEND_EMPTY_READ_ONLY",
+              "EXTEND_FORBIDDEN_CLASSIC_KEY",
+              "EXTEND_TTL_ZERO",
+              "EXTEND_TTL_EXCEEDS_MAX",
+              "EXTEND_NON_ZERO_INSTRUCTIONS",
+              "EXTEND_NON_ZERO_WRITE_BYTES",
+              "EXTEND_NON_POSITIVE_RESOURCE_FEE",
+              "EXTEND_FORBIDDEN_ARCHIVED_ENTRIES_EXT",
+              "INVOKE_FORBIDDEN_CLASSIC_KEY",
+              "INVOKE_ARCHIVED_INDEX_OUT_OF_BOUNDS",
+              "INVOKE_ARCHIVED_INDEX_UNSORTED",
+              "INVOKE_ARCHIVED_INDEX_DUPLICATE",
+              "INVOKE_ARCHIVED_KEY_NOT_PERSISTENT",
+              "SNAPSHOT_RESTORE_ALREADY_LIVE_KEY",
+              "SNAPSHOT_EXTEND_ARCHIVED_PERSISTENT_KEY",
+              "SNAPSHOT_REDUNDANT_TTL_EXTENSION",
+              "SNAPSHOT_MISSING_KEY_STATE"
+            ]
+          },
+          "message": {"type": "string"},
+          "operation_index": {"type": "integer", "minimum": 0},
+          "key_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+        }
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["code", "message"],
+        "properties": {
+          "code": {"const": "SNAPSHOT_MISSING_KEY_STATE"},
+          "message": {"type": "string"},
+          "key_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+        }
+      }
+    }
+  }
+}

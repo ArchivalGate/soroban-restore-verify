@@ -52,6 +52,49 @@ pub enum ViolationCode {
     SnapshotMissingKeyState,
 }
 
+impl ViolationCode {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::EnvelopeV0UnsupportedForSoroban => "ENVELOPE_V0_UNSUPPORTED_FOR_SOROBAN",
+            Self::EmptyOperations => "EMPTY_OPERATIONS",
+            Self::OpNotIsolated => "OP_NOT_ISOLATED",
+            Self::UnsupportedOperationType => "UNSUPPORTED_OPERATION_TYPE",
+            Self::MissingSorobanTransactionData => "MISSING_SOROBAN_TRANSACTION_DATA",
+            Self::FootprintDuplicateKey => "FOOTPRINT_DUPLICATE_KEY",
+            Self::FootprintUnsorted => "FOOTPRINT_UNSORTED",
+            Self::KeyXdrEncodingFailed => "KEY_XDR_ENCODING_FAILED",
+            Self::RestoreNonEmptyReadOnly => "RESTORE_NON_EMPTY_READ_ONLY",
+            Self::RestoreEmptyReadWrite => "RESTORE_EMPTY_READ_WRITE",
+            Self::RestoreForbiddenTemporaryKey => "RESTORE_FORBIDDEN_TEMPORARY_KEY",
+            Self::RestoreForbiddenClassicKey => "RESTORE_FORBIDDEN_CLASSIC_KEY",
+            Self::RestoreNonZeroInstructions => "RESTORE_NON_ZERO_INSTRUCTIONS",
+            Self::RestoreZeroWriteBytes => "RESTORE_ZERO_WRITE_BYTES",
+            Self::RestoreZeroDiskReadBytes => "RESTORE_ZERO_DISK_READ_BYTES",
+            Self::RestoreNonPositiveResourceFee => "RESTORE_NON_POSITIVE_RESOURCE_FEE",
+            Self::RestoreForbiddenArchivedEntriesExt => "RESTORE_FORBIDDEN_ARCHIVED_ENTRIES_EXT",
+            Self::ExtendNonEmptyReadWrite => "EXTEND_NON_EMPTY_READ_WRITE",
+            Self::ExtendEmptyReadOnly => "EXTEND_EMPTY_READ_ONLY",
+            Self::ExtendForbiddenClassicKey => "EXTEND_FORBIDDEN_CLASSIC_KEY",
+            Self::ExtendTtlZero => "EXTEND_TTL_ZERO",
+            Self::ExtendTtlExceedsMax => "EXTEND_TTL_EXCEEDS_MAX",
+            Self::ExtendNonZeroInstructions => "EXTEND_NON_ZERO_INSTRUCTIONS",
+            Self::ExtendNonZeroWriteBytes => "EXTEND_NON_ZERO_WRITE_BYTES",
+            Self::ExtendNonPositiveResourceFee => "EXTEND_NON_POSITIVE_RESOURCE_FEE",
+            Self::ExtendForbiddenArchivedEntriesExt => "EXTEND_FORBIDDEN_ARCHIVED_ENTRIES_EXT",
+            Self::InvokeForbiddenClassicKey => "INVOKE_FORBIDDEN_CLASSIC_KEY",
+            Self::InvokeArchivedIndexOutOfBounds => "INVOKE_ARCHIVED_INDEX_OUT_OF_BOUNDS",
+            Self::InvokeArchivedIndexUnsorted => "INVOKE_ARCHIVED_INDEX_UNSORTED",
+            Self::InvokeArchivedIndexDuplicate => "INVOKE_ARCHIVED_INDEX_DUPLICATE",
+            Self::InvokeArchivedKeyNotPersistent => "INVOKE_ARCHIVED_KEY_NOT_PERSISTENT",
+            Self::SnapshotRestoreAlreadyLiveKey => "SNAPSHOT_RESTORE_ALREADY_LIVE_KEY",
+            Self::SnapshotExtendArchivedPersistentKey => "SNAPSHOT_EXTEND_ARCHIVED_PERSISTENT_KEY",
+            Self::SnapshotRedundantTtlExtension => "SNAPSHOT_REDUNDANT_TTL_EXTENSION",
+            Self::SnapshotMissingKeyState => "SNAPSHOT_MISSING_KEY_STATE",
+        }
+    }
+}
+
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub struct Violation {
     pub code: ViolationCode,

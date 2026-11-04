@@ -47,6 +47,13 @@ pub fn read_bounded_file(path: &Path) -> Result<Vec<u8>, SafetyError> {
     check_regular_path(path)?;
 
     let file = File::open(path).map_err(|source| path_error(path, source))?;
+    let path_metadata = fs::symlink_metadata(path).map_err(|source| path_error(path, source))?;
+    if path_metadata.file_type().is_symlink() {
+        return Err(SafetyError::Symlink(path.to_path_buf()));
+    }
+    if !path_metadata.is_file() {
+        return Err(SafetyError::NotRegular(path.to_path_buf()));
+    }
     let opened_metadata = file.metadata().map_err(|source| path_error(path, source))?;
     if !opened_metadata.is_file() {
         return Err(SafetyError::NotRegular(path.to_path_buf()));
@@ -77,18 +84,20 @@ pub fn read_bounded_stdin<R: Read>(reader: R) -> Result<Vec<u8>, SafetyError> {
     Ok(bytes)
 }
 
-pub fn write_output_atomic_no_clobber(path: &Path, contents: &[u8]) -> Result<(), SafetyError> {
+pub fn check_output_available(path: &Path) -> Result<(), SafetyError> {
     match fs::symlink_metadata(path) {
         Ok(metadata) if metadata.file_type().is_symlink() => {
-            return Err(SafetyError::Symlink(path.to_path_buf()));
+            Err(SafetyError::Symlink(path.to_path_buf()))
         }
-        Ok(metadata) if !metadata.is_file() => {
-            return Err(SafetyError::NotRegular(path.to_path_buf()));
-        }
-        Ok(_) => return Err(SafetyError::OutputExists(path.to_path_buf())),
-        Err(error) if error.kind() == io::ErrorKind::NotFound => {}
-        Err(source) => return Err(path_error(path, source)),
+        Ok(metadata) if !metadata.is_file() => Err(SafetyError::NotRegular(path.to_path_buf())),
+        Ok(_) => Err(SafetyError::OutputExists(path.to_path_buf())),
+        Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(()),
+        Err(source) => Err(path_error(path, source)),
     }
+}
+
+pub fn write_output_atomic_no_clobber(path: &Path, contents: &[u8]) -> Result<(), SafetyError> {
+    check_output_available(path)?;
 
     let mut file = OpenOptions::new()
         .write(true)

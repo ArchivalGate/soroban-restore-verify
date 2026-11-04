@@ -4,9 +4,9 @@ use std::path::Path;
 
 use stellar_xdr::{
     ContractDataDurability, ExtendFootprintTtlOp, ExtensionPoint, LedgerKey, LedgerKeyAccount,
-    LedgerKeyContractCode, LedgerKeyContractData, Limits, Operation, OperationBody,
-    RestoreFootprintOp, SorobanTransactionData, Transaction, TransactionEnvelope,
-    TransactionExt, TransactionV1Envelope, ReadXdr, WriteXdr,
+    LedgerKeyContractCode, LedgerKeyContractData, Limits, Operation, OperationBody, ReadXdr,
+    RestoreFootprintOp, SorobanTransactionData, Transaction, TransactionEnvelope, TransactionExt,
+    TransactionV1Envelope, WriteXdr,
 };
 
 const MAX_INPUT_BYTES: usize = 1_048_576;
@@ -40,8 +40,8 @@ fn decodes_restore_and_extend_envelopes_with_explicit_limits() {
         ext: ExtensionPoint::default(),
     }));
     let restore_b64 = restore.to_xdr_base64(limits()).expect("encode restore");
-    let decoded_restore = TransactionEnvelope::from_xdr_base64(&restore_b64, limits())
-        .expect("decode restore");
+    let decoded_restore =
+        TransactionEnvelope::from_xdr_base64(&restore_b64, limits()).expect("decode restore");
     assert_eq!(decoded_restore, restore);
 
     let extend = envelope(OperationBody::ExtendFootprintTtl(ExtendFootprintTtlOp {
@@ -49,8 +49,8 @@ fn decodes_restore_and_extend_envelopes_with_explicit_limits() {
         extend_to: 100,
     }));
     let extend_b64 = extend.to_xdr_base64(limits()).expect("encode extend");
-    let decoded_extend = TransactionEnvelope::from_xdr_base64(&extend_b64, limits())
-        .expect("decode extend");
+    let decoded_extend =
+        TransactionEnvelope::from_xdr_base64(&extend_b64, limits()).expect("decode extend");
     assert_eq!(decoded_extend, extend);
 }
 
@@ -139,7 +139,10 @@ fn refuses_symlinks_oversized_files_and_existing_output_paths() {
 
     let output = dir.path().join("existing-output");
     fs::write(&output, b"keep").expect("write existing output");
-    let result = OpenOptions::new().write(true).create_new(true).open(&output);
+    let result = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&output);
     assert!(result.is_err());
     assert_eq!(fs::read(output).expect("read existing output"), b"keep");
 }

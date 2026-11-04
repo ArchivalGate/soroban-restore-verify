@@ -1,0 +1,10 @@
+{
+  "schema": "soroban-restore-verify/snapshot/1.0",
+  "entries": [
+    {
+      "key_xdr_base64": "AAAABgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAE=",
+      "key_sha256": "6e0233b0a9b1ccf457b070e104fc7417141c087723bd5d849f08c6ffb8c036e3",
+      "live_until_ledger_seq": 150
+    }
+  ]
+}

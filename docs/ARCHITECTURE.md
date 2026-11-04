@@ -110,6 +110,8 @@ The protocol source for archival operation requirements is [CAP-0046-12](https:/
 
 Schema identifier: `soroban-restore-verify/1.0`
 
+The machine-readable schema is in [`REPORT-SCHEMA.json`](REPORT-SCHEMA.json).
+
 The JSON report is an object with these fields:
 
 | Field | Type | Meaning |
