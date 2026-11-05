@@ -1,25 +1,31 @@
-# Phase C experiment record
+# XDR and file safety experiments
 
-Status: `VERIFIED_LOCAL`
+Status: verified locally
 
-## C-1: XDR and file-safety verification
+## Objective
 
-**Question:** Can the pinned XDR crate decode the two archival operation envelopes with explicit depth and byte limits, and do the canonical ordering and file-safety primitives needed by the verifier behave as expected?
+Confirm that the pinned XDR crate decodes archival operation envelopes within explicit depth and byte limits, and that canonical key ordering and file-safety primitives behave as required by the verifier.
 
-**Environment:** `rustc 1.97.1 (8bab26f4f 2026-07-14)`, `cargo 1.97.1 (c980f4866 2026-06-30)`, `stellar-xdr 30.0.0`, Linux x86_64. The experiment uses `Limits { depth: 64, len: 1_048_576 }`.
+## Environment
 
-**Coverage:**
+The experiment used `rustc 1.97.1 (8bab26f4f 2026-07-14)`, `cargo 1.97.1 (c980f4866 2026-06-30)`, `stellar-xdr 30.0.0`, and Linux x86_64. XDR decoding used `Limits { depth: 64, len: 1_048_576 }`.
 
-- Encode and decode structurally valid `RestoreFootprintOp` and `ExtendFootprintTtlOp` `TransactionEnvelope` values.
-- Reject a truncated XDR payload and invalid base64.
-- Compare Rust `LedgerKey` ordering with canonical XDR byte ordering for an Account key and ContractCode key.
+## Coverage
+
+- Encode and decode valid `RestoreFootprintOp` and `ExtendFootprintTtlOp` `TransactionEnvelope` values.
+- Reject truncated XDR and invalid base64.
+- Compare Rust `LedgerKey` ordering with canonical XDR byte ordering for an Account key and a ContractCode key.
 - Distinguish persistent and temporary ContractData, ContractCode, and classic Account keys.
-- Reject symlink and over-limit file input using symlink metadata and a bounded `Read::take` reader.
-- Reject creation over an existing output file with `create_new(true)` and confirm its contents remain intact.
+- Reject symlink and over-limit file input with symlink metadata and a bounded `Read::take` reader.
+- Refuse to replace an existing output file with `create_new(true)` and confirm its contents remain intact.
 
-**Command:** `rtk proxy cargo test --locked --test experiment_c1`
+## Verification command
 
-**Observed output:**
+```bash
+rtk proxy cargo test --locked --test experiment_c1
+```
+
+## Result
 
 ```text
     Finished `test` profile [unoptimized + debuginfo] target(s) in 0.25s
@@ -34,6 +40,6 @@ test refuses_symlinks_oversized_files_and_existing_output_paths ... ok
 test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
 ```
 
-**Decision:** `KEEP`
+## Conclusion
 
-**Gate G-C:** `PASS`
+The observed XDR decoding, key ordering, and file-safety behavior matched the requirements for these cases.
