@@ -1,22 +1,48 @@
-# soroban-restore-verify
+<div align="center">
+  <img src="assets/logo.svg" alt="soroban-restore-verify" width="96" height="96" />
 
-[![CI](https://github.com/ArchivalGate/soroban-restore-verify/actions/workflows/ci.yml/badge.svg)](https://github.com/ArchivalGate/soroban-restore-verify/actions/workflows/ci.yml)
-![License: MIT OR Apache-2.0](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue.svg)
+  # soroban-restore-verify
 
-## Summary
+  **Verify first. Sign and broadcast only valid archival XDRs.**<br />
+  Deterministic offline CAP-0046-12 and CAP-0066 transaction envelope verification for Stellar Soroban.
 
-`soroban-restore-verify` is an offline preflight verifier for Stellar Soroban `RestoreFootprintOp`, `ExtendFootprintTtlOp`, and archival `InvokeHostFunctionOp` transaction envelopes. It checks their XDR against [CAP-0046-12](https://github.com/stellar/stellar-protocol/blob/master/core/cap-0046-12.md) and [CAP-0066](https://github.com/stellar/stellar-protocol/blob/master/core/cap-0066.md) protocol invariants and reports local results without contacting Stellar RPC.
+  [Quick Start](#quick-start) · [Architecture](#verification-pipeline) · [Example Output](#example-output) · [CLI Options](#cli-flags--options) · [Violation Codes](#verified-protocol-invariants--violation-codes) · [Security](SECURITY.md) · [Final Audit](docs/FINAL-AUDIT.md)
 
-## Why This Tool Exists
+  [![CI](https://github.com/ArchivalGate/soroban-restore-verify/actions/workflows/ci.yml/badge.svg)](https://github.com/ArchivalGate/soroban-restore-verify/actions/workflows/ci.yml)
+  [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+</div>
 
-In production, `RestoreFootprintMalformed` and `ExtendFootprintTTLMalformed` can result from envelope details that are easy to miss in a manual `stellar tx decode` review: unsorted `LedgerKey` vectors, `Temporary` keys in a restore footprint, classic keys in a Soroban footprint, `extend_to` greater than `max_entry_ttl - 1`, or an attempt to extend an archived persistent key before restoring it. This CLI checks those conditions before a transaction is handed off for signing or submission.
+---
+
+## Overview & Why This Tool Exists
+
+`soroban-restore-verify` is an offline preflight verifier, available as a CLI and Rust library, for Stellar Soroban `RestoreFootprintOp`, `ExtendFootprintTtlOp`, and archival `InvokeHostFunctionOp` transaction envelopes. It checks the supplied XDR against [CAP-0046-12](https://github.com/stellar/stellar-protocol/blob/master/core/cap-0046-12.md) and [CAP-0066](https://github.com/stellar/stellar-protocol/blob/master/core/cap-0066.md) invariants without connecting to Stellar RPC.
+
+In production, `RestoreFootprintMalformed` and `ExtendFootprintTTLMalformed` can result when operators rely on manual `stellar tx decode` inspection. Decoding can leave mistakes unnoticed, including unsorted `LedgerKey` vectors, `Temporary` keys in a restore footprint, classic keys in a Soroban footprint, `extend_to` greater than `max_entry_ttl - 1`, non-zero instructions on archival operations, or an attempt to extend an archived persistent key before restoring it. A supplied caller snapshot lets the verifier check whether a persistent extension target is already archived.
+
+## Verification Pipeline
+
+The CLI processes local input through four stages:
+
+```text
+[Input Guard: <= 1 MiB, no symlinks]
+  ->
+[Bounded XDR Decoder: depth <= 64, TxV1 or FeeBump]
+  ->
+[CAP-0046-12 & CAP-0066 Invariant Engine + Optional Snapshot Policy]
+  ->
+[Deterministic Report: Exit 0 / 2 / 3]
+```
+
+`AUTHORITATIVE_PROTOCOL_XDR` applies to transaction structure, footprint key types and durability, canonical key ordering, and declared resource bounds in the envelope. `CALLER_SNAPSHOT` applies only to optional local JSON entry-state checks and is not live ledger state.
 
 ## Quick Start
 
-Build the release binary, verify a valid restore, check a protocol violation, then compare an extension against the included caller snapshot. The commands print each process exit code, including the expected `2` for the violation.
-
 ```bash
 cargo build --release --locked
+
+# Optional: install the CLI into Cargo's binary directory.
+cargo install --path . --locked
 
 ./target/release/soroban-restore-verify --input fixtures/valid-restore.xdr
 printf 'exit code: %s\n' "$?"
@@ -31,11 +57,13 @@ printf 'exit code: %s\n' "$?"
 printf 'exit code: %s\n' "$?"
 ```
 
+The valid restore exits `0`, the temporary-key restore exits `2`, and the snapshot cross-check exits `0`.
+
 ## Example Output
 
-The following reports are from the committed fixtures and release CLI.
+These outputs are from the committed fixtures and release CLI.
 
-### `valid-restore.xdr`, human format, exit 0
+#### 1. Valid Restore Envelope (Human Format, Exit 0)
 
 Command: `./target/release/soroban-restore-verify --input fixtures/valid-restore.xdr --format human`
 
@@ -53,7 +81,7 @@ Violations: 0
 Warnings: 0
 ```
 
-### `valid-restore.xdr`, JSON format, exit 0
+#### 2. Valid Restore Envelope (JSON Format, Exit 0)
 
 Command: `./target/release/soroban-restore-verify --input fixtures/valid-restore.xdr --format json`
 
@@ -82,7 +110,7 @@ Command: `./target/release/soroban-restore-verify --input fixtures/valid-restore
 }
 ```
 
-### `invalid-restore-temp.xdr`, human format, exit 2
+#### 3. Invalid Restore Envelope (Human Format and stderr Diagnostic, Exit 2)
 
 Command: `./target/release/soroban-restore-verify --input fixtures/invalid-restore-temp.xdr --format human`
 
@@ -101,13 +129,13 @@ Violations: 1
 Warnings: 0
 ```
 
-The CLI also writes this diagnostic to stderr:
+stderr:
 
 ```json
 {"code":"VERIFICATION_VIOLATION","message":"one or more policy invariants failed"}
 ```
 
-### `invalid-restore-temp.xdr`, JSON format, exit 2
+#### 4. Invalid Restore Envelope (JSON Format, Exit 2)
 
 Command: `./target/release/soroban-restore-verify --input fixtures/invalid-restore-temp.xdr --format json`
 
@@ -221,6 +249,25 @@ The snapshot file is JSON with schema `soroban-restore-verify/snapshot/1.0`. Eac
 
 Pass `--current-ledger` with `--snapshot` to compare each footprint key's live-until ledger with the requested operation. Add `--require-complete-snapshot` to report missing key state as `SNAPSHOT_MISSING_KEY_STATE`; otherwise, a missing key is reported as inconclusive.
 
+## Library Usage (Rust Crate)
+
+Add this crate as a path dependency in the consuming Rust tool or keeper service. Its Rust library name is `soroban_restore_verify`. Decode and verify an envelope in memory with the same public functions used by the CLI:
+
+```rust
+use soroban_restore_verify::{
+    model::Report,
+    verifier::{VerifyOptions, verify_envelope},
+    xdr_decoder::{DecodeError, InputEncoding, decode_envelope},
+};
+
+pub fn preflight(base64_xdr: &[u8]) -> Result<Report, DecodeError> {
+    let envelope = decode_envelope(base64_xdr, InputEncoding::Base64)?;
+    Ok(verify_envelope(&envelope, VerifyOptions::default(), None))
+}
+```
+
+The returned `Report` contains `VERIFIED_LOCAL` or `VIOLATION`, the affected keys, and any violation codes. Use `InputEncoding::RawXdr` for raw XDR bytes. A caller can pass a parsed `SnapshotIndex` instead of `None` when local snapshot checks are required.
+
 ## Exit Codes & Input Safety
 
 | Result | Behavior |
@@ -232,21 +279,59 @@ Pass `--current-ledger` with `--snapshot` to compare each footprint key's live-u
 | Symlinks | Symlink and non-regular input, snapshot, and output paths are rejected. |
 | `--output` | Atomically creates the report path with exclusive file creation, refuses existing paths, and removes a partial file if writing fails. |
 
+## Ecosystem Comparison
+
+| Tool | Focus | Difference |
+| --- | --- | --- |
+| [stellar-cli](https://github.com/stellar/stellar-cli) | `stellar tx decode` inspects XDR; `stellar contract restore` prepares a restore workflow. | General Stellar CLI commands. This tool checks archival transaction invariants in a supplied envelope without RPC. |
+| [stellar-api-inspector](https://github.com/Dantama022/stellar-api-inspector) | Node CLI for Horizon and Soroban RPC health, accounts, contracts, transactions, and operations. | Endpoint and network inspection; this verifier reads local XDR and does not connect to endpoints. |
+| [soroban-cost-linter](https://github.com/Tollcraft/soroban-cost-linter) | Rust and Dylint static analysis for input-independent Soroban contract resource-cost patterns. | Analyzes contract source; this verifier checks serialized transaction footprints and TTL fields. |
+| [Soroban State Lens](https://github.com/Vynix-Labs/Soroban-state-lens) | Browser-based Soroban state explorer and visual debugger. | Interactive state inspection; this verifier produces a local report for a transaction envelope. |
+
+## Test Suite & Reproducible Verification
+
+Run the formatting, lint, and test checks from the repository root:
+
+```bash
+cargo fmt --all -- --check
+cargo clippy --all-targets --locked -- -D warnings
+cargo test --all-targets --locked
+```
+
+The test command runs 21 tests: 17 CLI integration tests and 4 Phase C boundary tests.
+
+After building the release CLI, reproduce and compare all five generated fixtures byte for byte:
+
+```bash
+cargo build --release --locked
+tmpdir=$(mktemp -d)
+trap 'rm -rf "$tmpdir"' EXIT
+
+for name in valid-restore valid-extend invalid-restore-temp invalid-extend-unsorted; do
+  ./target/release/soroban-restore-verify --dump-fixture "$name" > "$tmpdir/$name.xdr"
+  cmp "fixtures/$name.xdr" "$tmpdir/$name.xdr"
+done
+
+./target/release/soroban-restore-verify --dump-fixture sample-snapshot > "$tmpdir/sample-snapshot.json"
+cmp fixtures/sample-snapshot.json "$tmpdir/sample-snapshot.json"
+```
+
 ## Scope & Limitations
 
-- This is an offline XDR verifier and makes no RPC calls.
-- It does not hold keys, sign transactions, or submit transactions.
-- Snapshot checks use caller-provided JSON and do not represent live ledger state.
-- `VERIFIED_LOCAL` means the supplied envelope passed these checks; it does not prove network acceptance or execution.
+- Offline XDR verification only. The CLI makes no RPC calls.
+- No key custody, transaction signing, or transaction submission.
+- Snapshot checks evaluate caller-supplied JSON and do not read live RPC state.
+- `VERIFIED_LOCAL` means the supplied envelope passed these local checks. It does not prove network acceptance or execution.
 
 ## Documentation & Repository Layout
 
 | Document | Contents |
 | --- | --- |
-| [Architecture](docs/ARCHITECTURE.md) | Data flow, authority boundaries, CLI behavior, snapshot and report schemas. |
-| [Toolchain matrix](docs/TOOLCHAIN-MATRIX.md) | Verified Rust and dependency versions, XDR fields, input authority. |
-| [Project profile](docs/PROJECT-PROFILE.md) | Project purpose, users, inputs, outputs, and scope. |
-| [Experiments](docs/EXPERIMENTS.md) | XDR decoding, canonical key ordering, and file-safety evidence. |
+| [Architecture](docs/ARCHITECTURE.md) | Data flow, authority boundaries, CLI behavior, and report schemas. |
+| [Toolchain matrix](docs/TOOLCHAIN-MATRIX.md) | Verified Rust and dependency versions, XDR fields, and input authority. |
+| [Project profile](docs/PROJECT-PROFILE.md) | Project purpose, users, supported inputs, and scope. |
+| [Experiments](docs/EXPERIMENTS.md) | XDR decoding, key ordering, and file-safety evidence. |
 | [Claim ledger](docs/CLAIM-LEDGER.md) | Evidence and limits for repository claims. |
 | [Final audit](docs/FINAL-AUDIT.md) | Audit findings and local and CI verification results. |
 | [Security](SECURITY.md) | Trust boundaries, input and output handling, vulnerability reporting. |
+| [MIT License](LICENSE) | License text and terms. |
