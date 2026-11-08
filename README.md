@@ -6,7 +6,7 @@
   **Verify first. Sign and broadcast only valid archival XDRs.**<br />
   Deterministic offline CAP-0046-12 and CAP-0066 transaction envelope verification for Stellar Soroban.
 
-  [Quick Start](#quick-start) · [Architecture](#verification-pipeline) · [Example Output](#example-output) · [CLI Options](#cli-flags--options) · [Violation Codes](#verified-protocol-invariants--violation-codes) · [Security](SECURITY.md) · [Final Audit](docs/FINAL-AUDIT.md)
+  [Quick Start](#quick-start) · [Architecture](#verification-pipeline) · [Example Output](#example-output) · [CLI Options](#cli-flags--options) · [Violation Codes](#verified-protocol-invariants--violation-codes) · [Security](SECURITY.md) · [Final Audit](docs/FINAL-AUDIT.md) · [Contributing](CONTRIBUTING.md)
 
   [![CI](https://github.com/ArchivalGate/soroban-restore-verify/actions/workflows/ci.yml/badge.svg)](https://github.com/ArchivalGate/soroban-restore-verify/actions/workflows/ci.yml)
   [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
@@ -268,6 +268,14 @@ pub fn preflight(base64_xdr: &[u8]) -> Result<Report, DecodeError> {
 
 The returned `Report` contains `VERIFIED_LOCAL` or `VIOLATION`, the affected keys, and any violation codes. Use `InputEncoding::RawXdr` for raw XDR bytes. A caller can pass a parsed `SnapshotIndex` instead of `None` when local snapshot checks are required.
 
+Run the [library consumer example](examples/verify_envelope.rs) from the repository root:
+
+```sh
+cargo run --example verify_envelope --locked
+```
+
+The example embeds the valid and invalid restore XDR fixtures at compile time and verifies both in memory. It imports `ReportStatus` as `Status`, checks for `Status::VerifiedLocal` and `Status::Violation`, and returns errors for decoding failures or unexpected results without panicking. The invalid fixture targets temporary ContractData, so its expected result is a policy violation.
+
 ## Exit Codes & Input Safety
 
 | Result | Behavior |
@@ -323,6 +331,24 @@ cmp fixtures/sample-snapshot.json "$tmpdir/sample-snapshot.json"
 - Snapshot checks evaluate caller-supplied JSON and do not read live RPC state.
 - `VERIFIED_LOCAL` means the supplied envelope passed these local checks. It does not prove network acceptance or execution.
 
+## Modular Architecture Map
+
+Use these module seams to keep contributor changes focused and parallel PRs in separate files where possible.
+
+| Source module | Responsibility | Contributor seam |
+| --- | --- | --- |
+| [`src/main.rs`](src/main.rs) | CLI argument parsing with `clap`, exit-code routing (`0`, `2`, `3`), and `stdout`/`stderr` stream separation. | CLI flags and orchestration. |
+| [`src/lib.rs`](src/lib.rs) | Public library entry point exporting verification, snapshot, I/O safety, decoding, fixture, and report interfaces. | Public module exports. |
+| [`src/model.rs`](src/model.rs) | Domain data structures, report and snapshot-summary schemas, exit-code constants, and all 35 `ViolationCode` definitions. | Shared types and stable serialized contracts. |
+| [`src/io_safety.rs`](src/io_safety.rs) | Bounded 1 MiB file/stdin readers, `symlink_metadata` path guards, and file output with atomic `create_new(true)` creation. | Input adapters and filesystem safety. |
+| [`src/verifier.rs`](src/verifier.rs) | Pure CAP-0046-12 and CAP-0066 invariant rules for `RestoreFootprintOp`, `ExtendFootprintTtlOp`, and `InvokeHostFunctionOp`. | Protocol rules, verification options, and TTL bounds. |
+| [`src/snapshot.rs`](src/snapshot.rs) | Caller-supplied JSON snapshot schema and parser with `deny_unknown_fields`, plus SHA-256 / base64 `LedgerKey` indexing. | Snapshot validation and key lookup. |
+| [`src/report.rs`](src/report.rs) | Deterministic human-readable and JSON report formatters. | Output formats. |
+| [`src/fixtures.rs`](src/fixtures.rs) | Deterministic XDR envelope and snapshot builders backing `--dump-fixture` and regression tests. | Reusable test fixtures. |
+| [`src/xdr_decoder.rs`](src/xdr_decoder.rs) | Bounded base64 and raw `TransactionEnvelope` XDR decoding with typed errors. | Envelope decoding and input encodings. |
+
+Configuration bounds live with their enforcement: the 1 MiB input limit is in `io_safety.rs`, XDR depth limits are in the decoding modules, and `VerifyOptions` and TTL bounds are in `verifier.rs`.
+
 ## Documentation & Repository Layout
 
 | Document | Contents |
@@ -335,3 +361,9 @@ cmp fixtures/sample-snapshot.json "$tmpdir/sample-snapshot.json"
 | [Final audit](docs/FINAL-AUDIT.md) | Audit findings and local and CI verification results. |
 | [Security](SECURITY.md) | Trust boundaries, input and output handling, vulnerability reporting. |
 | [MIT License](LICENSE) | License text and terms. |
+| [Contributing](CONTRIBUTING.md) | Module ownership, engineering rules, and local pre-PR checks. |
+| [Report schema](docs/REPORT-SCHEMA.json) | Machine-readable JSON report schema. |
+| [src/](src/) | Source modules listed in the architecture map above. |
+| [Library example](examples/verify_envelope.rs) | Runnable Rust consumer verifying both valid and invalid restore XDR in memory. |
+| [tests/](tests/) | CLI integration and experiment regression tests. |
+| [fixtures/](fixtures/) | Committed XDR envelopes and caller snapshot data. |
